@@ -13,8 +13,9 @@ const index = () => {
         try{
             const user = await signInWithEmailAndPassword(auth, email, password);
             if(user) router.replace('/(tabs)');
-        } catch (error) {
+        } catch (error: any) {
             console.log('Error al iniciar sesión : ', error);
+            alert('Error al iniciar sesión: ' + error.message);
         }
 
     }
@@ -23,8 +24,9 @@ const index = () => {
         try{
             const user = await createUserWithEmailAndPassword(auth, email, password);
             if(user) router.replace('/(tabs)');
-        } catch (error) {
+        } catch (error: any) {
             console.log('Error al iniciar sesión : ', error);
+            alert('Error al iniciar sesión: ' + error.message);
         }
         
     }
