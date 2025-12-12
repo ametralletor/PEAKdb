@@ -1,5 +1,7 @@
 import { db } from '@/FirebaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
@@ -37,6 +39,7 @@ export default function LikedAnimes() {
         if (userDislikesSnap.exists()) {
           const dislikedAnimesData = userDislikesSnap.data().dislikedAnimes || [];
           setDislikedAnimes(dislikedAnimesData);
+          console.log('Loaded dislikedAnimes count:', dislikedAnimesData.length);
         }
       } catch (e) {
         console.error('Error cargando likes/dislikes de Firestore', e);
@@ -137,12 +140,38 @@ export default function LikedAnimes() {
         <Text style={styles.title}>{item.titulo}</Text>
         <Text style={styles.kind}>{item.tipo}</Text>
       </View>
-      <TouchableOpacity 
-        style={styles.removeButton} 
-        onPress={() => tab === 'likes' ? removeLike(item.id) : removeDislike(item.id)}
-      >
-        <Text style={styles.removeButtonText}>Eliminar</Text>
-      </TouchableOpacity>
+      <View style={{ alignItems: 'center' }}>
+        {tab === 'dislikes' && (
+          <TouchableOpacity
+            style={styles.opportunityButton}
+            onPress={async () => {
+              try {
+                await AsyncStorage.setItem('corrutina_item', JSON.stringify(item));
+                const raw = await AsyncStorage.getItem('corrutina_item');
+                if (!raw) {
+                  console.log('No se pudo guardar corrutina_item');
+                  alert('Error guardando datos para la corrutina');
+                  return;
+                }
+                // optional: debug log
+                console.log('corrutina_item guardado:', raw);
+                router.push('/four');
+              } catch (e) {
+                console.log('Error preparando corrutina', e);
+                alert('Error preparando corrutina: ' + String(e));
+              }
+            }}
+          >
+            <Text style={styles.opportunityButtonText}>Dar oportunidad</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity 
+          style={styles.removeButton} 
+          onPress={() => tab === 'likes' ? removeLike(item.id) : removeDislike(item.id)}
+        >
+          <Text style={styles.removeButtonText}>Eliminar</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -284,6 +313,17 @@ const styles = StyleSheet.create({
   deleteAllButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  opportunityButton: {
+    backgroundColor: '#2a9d8f',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  opportunityButtonText: {
+    color: '#fff',
     fontWeight: '600',
   },
 });

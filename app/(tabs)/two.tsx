@@ -5,7 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getAuth } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import Swiper from 'react-native-deck-swiper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -18,11 +18,19 @@ type Anime = {
 
 
 export default function AnimeList() {
-
+const { width, height } = useWindowDimensions();
 const [animes, setAnimes] = useState<Anime[]>([]);
 const [noMoreAnimes, setNoMoreAnimes] = useState(false);
 const swipeRef= useRef<Swiper<Anime>>(null);
 const LIKES_KEY = 'likes_v1';
+
+//hacemos las dimensiones responsive
+const isWeb = Platform.OS === 'web';
+const cardWidth = isWeb ? Math.min(width * 0.6, 400) : width * 0.85;
+const cardHeight = isWeb ? Math.min(height * 0.75, 650) : 550;
+const imageHeight = isWeb ? cardHeight * 0.75 : cardHeight * 0.8;
+const containerPaddingTop = isWeb ? 20 : 0;
+const containerMarginTop = isWeb ? -120 : -190;
 
 async function addLike(item: Anime) {
   try {
@@ -149,10 +157,10 @@ useFocusEffect(
         {animes.length > 0 && !noMoreAnimes ? (
           <Swiper
             ref={swipeRef}
-            containerStyle={{ backgroundColor: 'transparent', justifyContent: 'center', alignItems: 'center', width: '100%', paddingTop: 20 , marginTop:-170}}
+            containerStyle={{ backgroundColor: 'transparent', justifyContent: 'center', alignItems: 'center', width: '100%', paddingTop: containerPaddingTop, marginTop: containerMarginTop, height: cardHeight }}
             cardStyle={{ alignItems: 'center', justifyContent: 'center' }}
             cards={animes}
-            stackSize={5}
+            stackSize={3}
             stackSeparation={12}
             stackScale={0.95}
             cardIndex={0}
@@ -174,8 +182,8 @@ useFocusEffect(
             }}
             onSwipedAll={onSwipedAll}
             renderCard={(card) => (
-              <View style={styles.card}>
-                <Image source={{ uri: card.image }} style={styles.image} />
+              <View style={[styles.card, { width: cardWidth, height: cardHeight }]}>
+                <Image source={{ uri: card.image }} style={[styles.image, { height: imageHeight }]} />
                 <Text style={styles.title}>{card.titulo}</Text>
                 <Text style={styles.kind}>{card.tipo}</Text>
               </View>
@@ -225,10 +233,10 @@ useFocusEffect(
 
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 10, overflow: 'hidden', backgroundColor: '#fff', elevation: 3 , width: '85%', justifyContent: 'center', alignItems: 'center' },
-  image: { width: '100%', height: 500 },
-  title: { fontSize: 18, fontWeight: '600', margin: 10 },
-  kind: { fontSize: 14, color: '#666', marginHorizontal: 10, marginBottom: 10 },
+  card: { borderRadius: 10, overflow: 'hidden', backgroundColor: '#fff', elevation: 3, justifyContent: 'center', alignItems: 'center' },
+  image: { width: '100%' },
+  title: { fontSize: 18, fontWeight: '600', margin: 10, textAlign: 'center' },
+  kind: { fontSize: 14, color: '#666', marginHorizontal: 10, marginBottom: 10, paddingBottom: 5, textAlign: 'center' },
   noMoreAnimes: {
     fontSize: 20,
     fontWeight: '600',

@@ -1,29 +1,19 @@
 import { Text, View } from '@/components/Themed';
-import { auth } from '@/FirebaseConfig';
 import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import React from 'react';
-import { StyleSheet, TouchableOpacity } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 
 export default function TabOneScreen() {
 
- getAuth().onAuthStateChanged((user) => {
-      if (!user) router.replace('/');
-    });
-    console.log('auth export:', !!auth);
-console.log('auth.currentUser:', auth?.currentUser);
-
-  
+  getAuth().onAuthStateChanged((user) => {
+    if (!user) router.replace('/');
+  });
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Cerrar sesión</Text>
-
-      <TouchableOpacity style={styles.logoutButton} onPress={() => {
-          console.log("SIGN OUT PRESSED");
-          auth.signOut();
-        }}>
-        <Text style={styles.logoutText}>Salir</Text>
-      </TouchableOpacity>
+      <Image source={require('@/assets/images/logo.png')} style={styles.logo} />
+      <Text style={styles.title}>Rander</Text>
+      <Text>¡Bienvenido a Rander! La mejor app para tus citas.</Text>
     </View>
   );
 }
@@ -42,20 +32,10 @@ const styles = StyleSheet.create({
     marginBottom: 25,
     color: '#333',
   },
-  logoutButton: {
-    backgroundColor: '#e63946',
-    paddingVertical: 14,
-    paddingHorizontal: 40,
-    borderRadius: 12,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-  },
-  logoutText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+  logo: {
+    width: 300,
+    height: 300,
+    marginBottom: 0,
+    resizeMode: 'contain',
   },
 });
