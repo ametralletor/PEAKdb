@@ -1,14 +1,10 @@
 import { Text, View } from '@/components/Themed';
-import { router } from 'expo-router';
-import { getAuth } from 'firebase/auth';
 import React from 'react';
 import { Image, StyleSheet } from 'react-native';
 
 export default function TabOneScreen() {
 
-  getAuth().onAuthStateChanged((user) => {
-    if (!user) router.replace('/');
-  });
+
   return (
     <View style={styles.container}>
       <Image source={require('@/assets/images/logo.png')} style={styles.logo} />

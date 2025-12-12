@@ -36,7 +36,6 @@ async function addLike(item: Anime) {
   try {
     const raw = await AsyncStorage.getItem(LIKES_KEY);
     const list: Anime[] = raw ? JSON.parse(raw) : [];
-    // evitar duplicados por id
     if (!list.find(i => i.id === item.id)) {
       list.unshift(item);
       await AsyncStorage.setItem(LIKES_KEY, JSON.stringify(list));
