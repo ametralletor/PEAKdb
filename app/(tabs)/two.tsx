@@ -1,6 +1,7 @@
 import { db } from '@/FirebaseConfig';
 import { AntDesign, Entypo } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { getAuth } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
@@ -21,7 +22,6 @@ export default function AnimeList() {
 const [animes, setAnimes] = useState<Anime[]>([]);
 const [noMoreAnimes, setNoMoreAnimes] = useState(false);
 const swipeRef= useRef<Swiper<Anime>>(null);
-// Añadir like a almacenamiento local
 const LIKES_KEY = 'likes_v1';
 
 async function addLike(item: Anime) {
@@ -44,20 +44,16 @@ async function addLike(item: Anime) {
 async function addLikeToFirebase(item: Anime) {
     const user = getAuth().currentUser;
     if (user) {
-      const userId = user.uid;  // Obtener el ID del usuario
-      const userLikesRef = doc(db, 'likes', userId);  // Referencia al documento de likes del usuario
+      const userId = user.uid;
+      const userLikesRef = doc(db, 'likes', userId);
 
       try {
-        // Obtener los "likes" actuales del usuario
         const userLikesSnap = await getDoc(userLikesRef);
         let likedAnimes = userLikesSnap.exists() ? userLikesSnap.data().likedAnimes || [] : [];
 
-        // Evitar duplicados por ID
         if (!likedAnimes.find((i: Anime) => i.id === item.id)) {
-          likedAnimes.unshift(item);  // Añadir el anime a la lista de likes
-          
-          // Actualizamos el documento de Firestore
-          await setDoc(userLikesRef, { likedAnimes }); // Si el documento no existe, lo crea, si existe lo actualiza.
+          likedAnimes.unshift(item);
+          await setDoc(userLikesRef, { likedAnimes });
           console.log('Guardado like en Firebase:', item.id);
         } else {
           console.log('Ya existe like en Firebase:', item.id);
@@ -68,70 +64,115 @@ async function addLikeToFirebase(item: Anime) {
     }
   }
 
+async function addDislikeToFirebase(item: Anime) {
+    const user = getAuth().currentUser;
+    if (user) {
+      const userId = user.uid;
+      const userDislikesRef = doc(db, 'dislikes', userId);
 
+      try {
+        const userDislikesSnap = await getDoc(userDislikesRef);
+        let dislikedAnimes = userDislikesSnap.exists() ? userDislikesSnap.data().dislikedAnimes || [] : [];
 
-  useEffect(() => {
-    const loadAnimes = async () => {
-      try{
-      const querySnapshot = await getDocs(collection(db, 'animes'));
-      const data: Anime[] = querySnapshot.docs.map(doc => { 
-        const d = doc.data() as Omit<Anime, 'id'>;
-
-        
-        return {
-          id: doc.id,
-          titulo: d.titulo,
-          image: d.image,
-          tipo: d.tipo
-        };
-      });
-      setAnimes(data);
-    } catch (error) {
-      console.log("Error cargando animes: ", error);
-      alert("Error cargando animes: " + error);
+        if (!dislikedAnimes.find((i: Anime) => i.id === item.id)) {
+          dislikedAnimes.unshift(item);
+          await setDoc(userDislikesRef, { dislikedAnimes });
+          console.log('Guardado dislike en Firebase:', item.id);
+        } else {
+          console.log('Ya existe dislike en Firebase:', item.id);
+        }
+      } catch (e) {
+        console.log('Error guardando dislike en Firebase', e);
+      }
     }
-  
-  };
+  }
+
+const loadAnimes = async () => {
+  try{
+    const querySnapshot = await getDocs(collection(db, 'animes'));
+    let data: Anime[] = querySnapshot.docs.map(doc => { 
+      const d = doc.data() as Omit<Anime, 'id'>;
+      return {
+        id: doc.id,
+        titulo: d.titulo,
+        image: d.image,
+        tipo: d.tipo
+      };
+    });
+
+    const user = getAuth().currentUser;
+    if (user) {
+      const userId = user.uid;
+      const likesRef = doc(db, 'likes', userId);
+      const dislikesRef = doc(db, 'dislikes', userId);
+
+      try {
+        const likesSnap = await getDoc(likesRef);
+        const dislikesSnap = await getDoc(dislikesRef);
+
+        const likedIds = likesSnap.exists() ? (likesSnap.data().likedAnimes || []).map((a: Anime) => a.id) : [];
+        const dislikedIds = dislikesSnap.exists() ? (dislikesSnap.data().dislikedAnimes || []).map((a: Anime) => a.id) : [];
+        const viewedIds = new Set([...likedIds, ...dislikedIds]);
+
+        data = data.filter(anime => !viewedIds.has(anime.id));
+
+        console.log(`Cargados ${data.length} personajes (excluidos ${viewedIds.size} ya vistos)`);
+      } catch (e) {
+        console.log('Error cargando likes/dislikes:', e);
+      }
+    }
+
+    setAnimes(data);
+    setNoMoreAnimes(false);
+  } catch (error) {
+    console.log("Error cargando personajes: ", error);
+    alert("Error cargando personajes: " + error);
+  }
+};
+
+useEffect(() => {
+  loadAnimes();
+}, []);
+
+useFocusEffect(
+  React.useCallback(() => {
     loadAnimes();
-  }, []);
+  }, [])
+);
     const onSwipedAll = () => {
     setNoMoreAnimes(true);
   };
 
   return (
-    /*<FlatList
-      data={animes}
-      keyExtractor={item => item.id}
-      renderItem={({ item }) => (
-        <View style={styles.card}>
-          <Image source={{ uri: item.image }} style={styles.image} />
-          <Text style={styles.title}>{item.titulo}</Text>
-          <Text style={styles.kind}>{item.tipo}</Text>
-        </View>
-      )}
-    />*/
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor:'rgba(129, 199, 132, 0.17)' }}>
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         {animes.length > 0 && !noMoreAnimes ? (
           <Swiper
             ref={swipeRef}
-            containerStyle={{ backgroundColor: 'transparent', justifyContent: 'center', alignItems: 'center', width: '100%', paddingTop: 20 , marginTop:-150}}
+            containerStyle={{ backgroundColor: 'transparent', justifyContent: 'center', alignItems: 'center', width: '100%', paddingTop: 20 , marginTop:-170}}
             cardStyle={{ alignItems: 'center', justifyContent: 'center' }}
             cards={animes}
             stackSize={5}
             stackSeparation={12}
             stackScale={0.95}
             cardIndex={0}
+            key={animes.map(a => a.id).join(',')}
             animateCardOpacity
             verticalSwipe={false}
+
             onSwipedLeft={(card) => {
-              console.log('Swipe me gusta');
-              addLikeToFirebase(animes[card]);
+              console.log('Swipe me gusta, card index:', card);
+              if (animes[card]) {
+                addLikeToFirebase(animes[card]);
+              }
             }}
-            onSwipedRight={() => {
-              console.log('Swipe no me gusta');
+            onSwipedRight={(card) => {
+              console.log('Swipe no me gusta, card index:', card);
+              if (animes[card]) {
+                addDislikeToFirebase(animes[card]);
+              }
             }}
-            onSwipedAll={onSwipedAll} // Llamamos a la función cuando se acaben las cartas
+            onSwipedAll={onSwipedAll}
             renderCard={(card) => (
               <View style={styles.card}>
                 <Image source={{ uri: card.image }} style={styles.image} />
@@ -139,6 +180,26 @@ async function addLikeToFirebase(item: Anime) {
                 <Text style={styles.kind}>{card.tipo}</Text>
               </View>
             )}
+            overlayLabels={{
+              left: {
+                title:"LIKE!!",
+                style:{
+                  label: {
+                    textAlign:"right",
+                    color:"green",
+                  },
+                },
+              },
+              right: {
+                title:"DISLIKE :(",
+                style:{
+                  label: {
+                    textAlign:"left",
+                    color:"red",
+                  },
+                },
+              },
+            }}
           />
         ) : (
           <Text style={styles.noMoreAnimes}>😢No hay más personas😢</Text>

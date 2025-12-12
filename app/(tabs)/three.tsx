@@ -14,24 +14,32 @@ type Anime = {
 
 export default function LikedAnimes() {
   const [likedAnimes, setLikedAnimes] = useState<Anime[]>([]);
+  const [dislikedAnimes, setDislikedAnimes] = useState<Anime[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<'likes' | 'dislikes'>('likes');
 
   const loadLikedAnimes = async () => {
     const user = getAuth().currentUser;
     if (user) {
       const userId = user.uid;
       const userLikesRef = doc(db, 'likes', userId);
+      const userDislikesRef = doc(db, 'dislikes', userId);
 
       try {
         const userLikesSnap = await getDoc(userLikesRef);
+        const userDislikesSnap = await getDoc(userDislikesRef);
+
         if (userLikesSnap.exists()) {
           const likedAnimesData = userLikesSnap.data().likedAnimes || [];
           setLikedAnimes(likedAnimesData);
-        } else {
-          console.log('No likes found');
+        }
+
+        if (userDislikesSnap.exists()) {
+          const dislikedAnimesData = userDislikesSnap.data().dislikedAnimes || [];
+          setDislikedAnimes(dislikedAnimesData);
         }
       } catch (e) {
-        console.error('Error cargando los likes de Firestore', e);
+        console.error('Error cargando likes/dislikes de Firestore', e);
       } finally {
         setLoading(false);
       }
@@ -58,14 +66,8 @@ export default function LikedAnimes() {
         const userLikesSnap = await getDoc(userLikesRef);
         if (userLikesSnap.exists()) {
           let likedAnimesData = userLikesSnap.data().likedAnimes || [];
-
-          // Filtrar el anime que se va a eliminar
           const updatedLikedAnimes = likedAnimesData.filter((anime: Anime) => anime.id !== animeId);
-
-          // Actualizar la lista de likes en Firestore
           await setDoc(userLikesRef, { likedAnimes: updatedLikedAnimes });
-
-          // Actualizar el estado localmente después de la eliminación
           setLikedAnimes(updatedLikedAnimes);
           console.log('Like eliminado de Firestore:', animeId);
         }
@@ -75,35 +77,151 @@ export default function LikedAnimes() {
     }
   };
 
+  const removeDislike = async (animeId: string) => {
+    const user = getAuth().currentUser;
+    if (user) {
+      const userId = user.uid;
+      const userDislikesRef = doc(db, 'dislikes', userId);
+
+      try {
+        const userDislikesSnap = await getDoc(userDislikesRef);
+        if (userDislikesSnap.exists()) {
+          let dislikedAnimesData = userDislikesSnap.data().dislikedAnimes || [];
+          const updatedDislikedAnimes = dislikedAnimesData.filter((anime: Anime) => anime.id !== animeId);
+          await setDoc(userDislikesRef, { dislikedAnimes: updatedDislikedAnimes });
+          setDislikedAnimes(updatedDislikedAnimes);
+          console.log('Dislike eliminado de Firestore:', animeId);
+        }
+      } catch (e) {
+        console.error('Error eliminando el dislike', e);
+      }
+    }
+  };
+
+  const removeAllLikes = async () => {
+    const user = getAuth().currentUser;
+    if (user) {
+      const userId = user.uid;
+      const userLikesRef = doc(db, 'likes', userId);
+
+      try {
+        await setDoc(userLikesRef, { likedAnimes: [] });
+        setLikedAnimes([]);
+        console.log('Todos los likes eliminados');
+      } catch (e) {
+        console.error('Error eliminando todos los likes', e);
+      }
+    }
+  };
+
+  const removeAllDislikes = async () => {
+    const user = getAuth().currentUser;
+    if (user) {
+      const userId = user.uid;
+      const userDislikesRef = doc(db, 'dislikes', userId);
+
+      try {
+        await setDoc(userDislikesRef, { dislikedAnimes: [] });
+        setDislikedAnimes([]);
+        console.log('Todos los dislikes eliminados');
+      } catch (e) {
+        console.error('Error eliminando todos los dislikes', e);
+      }
+    }
+  };
+
   const renderItem = ({ item }: { item: Anime }) => (
     <View style={styles.card}>
       <Image source={{ uri: item.image }} style={styles.image} />
-      <Text style={styles.title}>{item.titulo}</Text>
-      <Text style={styles.kind}>{item.tipo}</Text>
-      <TouchableOpacity style={styles.removeButton} onPress={() => removeLike(item.id)}>
+      <View style={styles.info}>
+        <Text style={styles.title}>{item.titulo}</Text>
+        <Text style={styles.kind}>{item.tipo}</Text>
+      </View>
+      <TouchableOpacity 
+        style={styles.removeButton} 
+        onPress={() => tab === 'likes' ? removeLike(item.id) : removeDislike(item.id)}
+      >
         <Text style={styles.removeButtonText}>Eliminar</Text>
       </TouchableOpacity>
     </View>
   );
 
+  const displayData = tab === 'likes' ? likedAnimes : dislikedAnimes;
+  const emptyMessage = tab === 'likes' 
+    ? 'No has dado like a ningún personaje aún.' 
+    : 'No has rechazado ningún personaje aún.';
+
   return (
-    <View style={{ flex: 1, padding: 10 }}>
-      {loading ? (
-        <Text style={styles.loadingText}>Cargando...</Text>
-      ) : likedAnimes.length === 0 ? (
-        <Text style={styles.noLikesText}>No has dado like a ningún anime aún.</Text>
-      ) : (
-        <FlatList
-          data={likedAnimes}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-        />
-      )}
+    <View style={{ flex: 1 }}>
+      <View style={styles.tabContainer}>
+        <TouchableOpacity 
+          style={[styles.tabButton, tab === 'likes' && styles.tabButtonActive]}
+          onPress={() => setTab('likes')}
+        >
+          <Text style={[styles.tabButtonText, tab === 'likes' && styles.tabButtonTextActive]}>
+            Likeados
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tabButton, tab === 'dislikes' && styles.tabButtonActive]}
+          onPress={() => setTab('dislikes')}
+        >
+          <Text style={[styles.tabButtonText, tab === 'dislikes' && styles.tabButtonTextActive]}>
+            Rechazados
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={{ flex: 1, padding: 10 }}>
+        {loading ? (
+          <Text style={styles.loadingText}>Cargando...</Text>
+        ) : displayData.length === 0 ? (
+          <Text style={styles.noLikesText}>{emptyMessage}</Text>
+        ) : (
+          <>
+            <FlatList
+              data={displayData}
+              keyExtractor={(item) => item.id}
+              renderItem={renderItem}
+            />
+            <TouchableOpacity 
+              style={styles.deleteAllButton}
+              onPress={() => tab === 'likes' ? removeAllLikes() : removeAllDislikes()}
+            >
+              <Text style={styles.deleteAllButtonText}>Eliminar todos</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#f9f9f9',
+    borderBottomWidth: 1,
+    borderColor: '#ddd',
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderBottomWidth: 3,
+    borderColor: 'transparent',
+  },
+  tabButtonActive: {
+    borderColor: '#2a9d8f',
+  },
+  tabButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#999',
+  },
+  tabButtonTextActive: {
+    color: '#2a9d8f',
+  },
   card: {
     borderRadius: 10,
     overflow: 'hidden',
@@ -118,36 +236,54 @@ const styles = StyleSheet.create({
     width: 60,
     height: 90,
     marginRight: 15,
+    borderRadius: 5,
+    backgroundColor: '#ddd',
+  },
+  info: {
+    flex: 1,
   },
   title: {
     fontSize: 16,
     fontWeight: '600',
-    flex: 1,
   },
   kind: {
     fontSize: 12,
     color: '#666',
-    marginVertical: 5,
-    marginRight: 20,
+    marginTop: 4,
   },
   removeButton: {
     backgroundColor: '#e63946',
-    padding: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 5,
   },
   removeButtonText: {
     color: '#fff',
     fontSize: 12,
+    fontWeight: '600',
   },
   loadingText: {
     textAlign: 'center',
     fontSize: 18,
     color: '#555',
+    marginTop: 20,
   },
   noLikesText: {
     textAlign: 'center',
-    fontSize: 18,
-    color: '#555',
-    marginTop: 20,
+    fontSize: 16,
+    color: '#999',
+    marginTop: 30,
+  },
+  deleteAllButton: {
+    backgroundColor: '#e63946',
+    marginVertical: 15,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  deleteAllButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
